@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UsuarioService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">locadora</a> &gt; <a href="index.source.html" class="el_package">com.example.locadora.service</a> &gt; <span class="el_source">UsuarioService.java</span></div><h1>UsuarioService.java</h1><pre class="source lang-java linenums">package com.example.locadora.service;
+
+import com.example.locadora.config.AppSecurityProperties;
+import com.example.locadora.dto.UsuarioRequest;
+import com.example.locadora.dto.UsuarioResponse;
+import com.example.locadora.entity.RoleType;
+import com.example.locadora.entity.Usuario;
+import com.example.locadora.exception.BusinessException;
+import com.example.locadora.repository.UsuarioRepository;
+import com.example.locadora.util.InputSanitizer;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+public class UsuarioService {
+
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final InputSanitizer inputSanitizer;
+    private final AppSecurityProperties securityProperties;
+
+    public UsuarioService(UsuarioRepository usuarioRepository,
+                          PasswordEncoder passwordEncoder,
+                          InputSanitizer inputSanitizer,
+<span class="fc" id="L25">                          AppSecurityProperties securityProperties) {</span>
+<span class="fc" id="L26">        this.usuarioRepository = usuarioRepository;</span>
+<span class="fc" id="L27">        this.passwordEncoder = passwordEncoder;</span>
+<span class="fc" id="L28">        this.inputSanitizer = inputSanitizer;</span>
+<span class="fc" id="L29">        this.securityProperties = securityProperties;</span>
+<span class="fc" id="L30">    }</span>
+
+    public UsuarioResponse criarUsuario(UsuarioRequest request) {
+
+<span class="pc bpc" id="L34" title="1 of 2 branches missed.">        if (securityProperties.isSecureMode()) {</span>
+<span class="fc" id="L35">            usuarioRepository.findByUsername(request.username()).ifPresent(u -&gt; {</span>
+<span class="nc" id="L36">                throw new BusinessException(&quot;Usuário já existente&quot;);</span>
+            });
+        }
+
+<span class="fc" id="L40">        Usuario usuario = new Usuario();</span>
+<span class="fc" id="L41">        usuario.setUsername(request.username());</span>
+
+        // ✅ CORREÇÃO XSS: sanitiza SEMPRE (nome/email)
+<span class="fc" id="L44">        usuario.setNome(inputSanitizer.sanitize(request.nome()));</span>
+<span class="fc" id="L45">        usuario.setEmail(inputSanitizer.sanitize(request.email()));</span>
+
+<span class="fc" id="L47">        usuario.setRole(RoleType.valueOf(request.role().toUpperCase()));</span>
+<span class="fc" id="L48">        usuario.setSenha(passwordEncoder.encode(request.senha()));</span>
+
+<span class="fc" id="L50">        Usuario salvo = usuarioRepository.save(usuario);</span>
+
+<span class="fc" id="L52">        return new UsuarioResponse(</span>
+<span class="fc" id="L53">                salvo.getId(),</span>
+<span class="fc" id="L54">                salvo.getUsername(),</span>
+<span class="fc" id="L55">                salvo.getNome(),</span>
+<span class="fc" id="L56">                salvo.getRole().name(),</span>
+<span class="fc" id="L57">                salvo.getEmail()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

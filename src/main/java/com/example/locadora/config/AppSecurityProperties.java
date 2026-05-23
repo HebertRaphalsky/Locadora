@@ -6,7 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AppSecurityProperties {
 
     private SecurityMode mode = SecurityMode.SECURE;
-    private String encryptionKey = "ChangeMe-32chars-key-1234567890";
+
+    // ✅ Recomendado: sem default hardcoded (defina em application.properties)
+    private String encryptionKey;
 
     public SecurityMode getMode() {
         return mode;

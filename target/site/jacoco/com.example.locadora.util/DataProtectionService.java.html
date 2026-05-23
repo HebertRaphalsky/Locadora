@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataProtectionService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">locadora</a> &gt; <a href="index.source.html" class="el_package">com.example.locadora.util</a> &gt; <span class="el_source">DataProtectionService.java</span></div><h1>DataProtectionService.java</h1><pre class="source lang-java linenums">package com.example.locadora.util;
+
+import com.example.locadora.config.AppSecurityProperties;
+import org.springframework.stereotype.Component;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.Base64;
+
+@Component
+public class DataProtectionService {
+
+    private static final String TRANSFORMATION = &quot;AES/GCM/NoPadding&quot;;
+    private static final String KEY_ALGO = &quot;AES&quot;;
+    private static final int IV_LENGTH_BYTES = 12;      // recomendado para GCM
+    private static final int TAG_LENGTH_BITS = 128;     // tag de autenticação (16 bytes)
+
+    private final AppSecurityProperties securityProperties;
+<span class="fc" id="L24">    private final SecureRandom secureRandom = new SecureRandom();</span>
+
+<span class="fc" id="L26">    public DataProtectionService(AppSecurityProperties securityProperties) {</span>
+<span class="fc" id="L27">        this.securityProperties = securityProperties;</span>
+<span class="fc" id="L28">    }</span>
+
+    public String protect(String plainText) {
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">        if (plainText == null) {</span>
+<span class="nc" id="L32">            return null;</span>
+        }
+
+        try {
+<span class="fc" id="L36">            byte[] iv = new byte[IV_LENGTH_BYTES];</span>
+<span class="fc" id="L37">            secureRandom.nextBytes(iv);</span>
+
+<span class="fc" id="L39">            Cipher cipher = Cipher.getInstance(TRANSFORMATION);</span>
+<span class="fc" id="L40">            GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH_BITS, iv);</span>
+<span class="fc" id="L41">            cipher.init(Cipher.ENCRYPT_MODE, buildKey(), spec);</span>
+
+<span class="fc" id="L43">            byte[] cipherText = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));</span>
+
+            // Armazenar IV + ciphertext (cipherText já inclui a tag GCM no final)
+<span class="fc" id="L46">            byte[] out = ByteBuffer.allocate(iv.length + cipherText.length)</span>
+<span class="fc" id="L47">                    .put(iv)</span>
+<span class="fc" id="L48">                    .put(cipherText)</span>
+<span class="fc" id="L49">                    .array();</span>
+
+<span class="fc" id="L51">            return Base64.getEncoder().encodeToString(out);</span>
+
+<span class="nc" id="L53">        } catch (Exception e) {</span>
+<span class="nc" id="L54">            throw new IllegalStateException(&quot;Falha ao cifrar documento&quot;, e);</span>
+        }
+    }
+
+    public String reveal(String storedValue) {
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        if (storedValue == null) {</span>
+<span class="nc" id="L60">            return null;</span>
+        }
+
+        try {
+<span class="fc" id="L64">            byte[] allBytes = Base64.getDecoder().decode(storedValue);</span>
+<span class="fc" id="L65">            ByteBuffer bb = ByteBuffer.wrap(allBytes);</span>
+
+<span class="fc" id="L67">            byte[] iv = new byte[IV_LENGTH_BYTES];</span>
+<span class="fc" id="L68">            bb.get(iv);</span>
+
+<span class="fc" id="L70">            byte[] cipherText = new byte[bb.remaining()];</span>
+<span class="fc" id="L71">            bb.get(cipherText);</span>
+
+<span class="fc" id="L73">            Cipher cipher = Cipher.getInstance(TRANSFORMATION);</span>
+<span class="fc" id="L74">            GCMParameterSpec spec = new GCMParameterSpec(TAG_LENGTH_BITS, iv);</span>
+<span class="fc" id="L75">            cipher.init(Cipher.DECRYPT_MODE, buildKey(), spec);</span>
+
+<span class="fc" id="L77">            byte[] plain = cipher.doFinal(cipherText);</span>
+<span class="fc" id="L78">            return new String(plain, StandardCharsets.UTF_8);</span>
+
+<span class="nc" id="L80">        } catch (Exception e) {</span>
+<span class="nc" id="L81">            throw new IllegalStateException(&quot;Falha ao decifrar documento&quot;, e);</span>
+        }
+    }
+
+    private SecretKeySpec buildKey() {
+        try {
+<span class="fc" id="L87">            String keyMaterial = securityProperties.getEncryptionKey();</span>
+<span class="pc bpc" id="L88" title="2 of 4 branches missed.">            if (keyMaterial == null || keyMaterial.isBlank()) {</span>
+<span class="nc" id="L89">                throw new IllegalStateException(&quot;EncryptionKey não configurada (app.security.encryptionKey)&quot;);</span>
+            }
+
+            // Deriva 256-bit key a partir do texto configurado (melhor que truncar)
+<span class="fc" id="L93">            byte[] hash = MessageDigest.getInstance(&quot;SHA-256&quot;)</span>
+<span class="fc" id="L94">                    .digest(keyMaterial.getBytes(StandardCharsets.UTF_8));</span>
+
+<span class="fc" id="L96">            return new SecretKeySpec(hash, KEY_ALGO);</span>
+
+<span class="nc" id="L98">        } catch (Exception e) {</span>
+<span class="nc" id="L99">            throw new IllegalStateException(&quot;Falha ao derivar chave de criptografia&quot;, e);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

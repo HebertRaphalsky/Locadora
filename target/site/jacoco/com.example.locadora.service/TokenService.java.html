@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TokenService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">locadora</a> &gt; <a href="index.source.html" class="el_package">com.example.locadora.service</a> &gt; <span class="el_source">TokenService.java</span></div><h1>TokenService.java</h1><pre class="source lang-java linenums">package com.example.locadora.service;
+
+import com.example.locadora.entity.Usuario;
+
+import java.time.Instant;
+import java.util.*;
+
+<span class="fc" id="L8">public class TokenService {</span>
+
+<span class="fc" id="L10">    private final Map&lt;String, Session&gt; sessions = new HashMap&lt;&gt;();</span>
+
+    public String emitToken(Usuario usuario) {
+
+<span class="fc" id="L14">        String token = UUID.randomUUID().toString();</span>
+
+<span class="fc" id="L16">        Session session = new Session(</span>
+<span class="fc" id="L17">                usuario.getUsername(),</span>
+<span class="fc" id="L18">                usuario.getRole(),</span>
+<span class="fc" id="L19">                Instant.now().plusSeconds(3600)</span>
+        );
+
+<span class="fc" id="L22">        sessions.put(token, session);</span>
+
+<span class="fc" id="L24">        return token;</span>
+    }
+
+    public Optional&lt;Session&gt; validate(String token) {
+
+<span class="fc bfc" id="L29" title="All 4 branches covered.">        if (token == null || token.isBlank()) {</span>
+<span class="fc" id="L30">            return Optional.empty();</span>
+        }
+
+<span class="fc" id="L33">        Session session = sessions.get(token);</span>
+
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (session == null) {</span>
+<span class="fc" id="L36">            return Optional.empty();</span>
+        }
+
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">        if (session.expiresAt().isBefore(Instant.now())) {</span>
+<span class="nc" id="L40">            return Optional.empty();</span>
+        }
+
+<span class="fc" id="L43">        return Optional.of(session);</span>
+    }
+
+    public void revoke(String token) {
+<span class="fc" id="L47">        sessions.remove(token);</span>
+<span class="fc" id="L48">    }</span>
+
+<span class="fc" id="L50">    public record Session(String username, Object role, Instant expiresAt) {}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

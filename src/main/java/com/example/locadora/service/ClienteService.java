@@ -33,37 +33,46 @@ public class ClienteService {
     }
 
     public ClienteResponse criar(ClienteRequest request) {
-        if (securityProperties.isSecureMode() && clienteRepository.findAll().stream().anyMatch(c -> c.getEmail().equalsIgnoreCase(request.email()))) {
+        if (securityProperties.isSecureMode()
+                && clienteRepository.findAll().stream().anyMatch(c -> c.getEmail().equalsIgnoreCase(request.email()))) {
             throw new BusinessException("Cliente já cadastrado");
         }
+
         Cliente cliente = new Cliente();
         preencher(cliente, request);
         return toResponse(clienteRepository.save(cliente));
     }
 
     public List<ClienteResponse> listar() {
-        return clienteRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return clienteRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     public Cliente buscar(Long id) {
-        return clienteRepository.findById(id).orElseThrow(() -> new NotFoundException("Cliente não encontrado"));
+        return clienteRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Cliente não encontrado"));
     }
 
     private void preencher(Cliente cliente, ClienteRequest request) {
-        if (securityProperties.isSecureMode()) {
-            cliente.setNome(inputSanitizer.sanitize(request.nome()));
-            cliente.setEmail(inputSanitizer.sanitize(request.email()));
-            cliente.setTelefone(inputSanitizer.sanitize(request.telefone()));
-        } else {
-            cliente.setNome(request.nome());
-            cliente.setEmail(request.email());
-            cliente.setTelefone(request.telefone());
-        }
+        // ✅ CORREÇÃO XSS: sanitiza SEMPRE (nome/email/telefone)
+        cliente.setNome(inputSanitizer.sanitize(request.nome()));
+        cliente.setEmail(inputSanitizer.sanitize(request.email()));
+        cliente.setTelefone(inputSanitizer.sanitize(request.telefone()));
+
+        // Mantém proteção do documento como já está no seu projeto
         cliente.setDocumento(dataProtectionService.protect(request.documento()));
     }
 
     private ClienteResponse toResponse(Cliente cliente) {
         String documento = dataProtectionService.reveal(cliente.getDocumento());
-        return new ClienteResponse(cliente.getId(), cliente.getNome(), cliente.getEmail(), documento, cliente.getTelefone());
+        return new ClienteResponse(
+                cliente.getId(),
+                cliente.getNome(),
+                cliente.getEmail(),
+                documento,
+                cliente.getTelefone()
+        );
     }
 }

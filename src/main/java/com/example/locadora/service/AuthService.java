@@ -7,13 +7,8 @@ import com.example.locadora.entity.Usuario;
 import com.example.locadora.exception.BusinessException;
 import com.example.locadora.repository.UsuarioRepository;
 import com.example.locadora.security.TokenService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Query;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class AuthService {
@@ -22,9 +17,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final AppSecurityProperties securityProperties;
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     public AuthService(UsuarioRepository usuarioRepository,
                        PasswordEncoder passwordEncoder,
@@ -37,23 +29,20 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        Usuario usuario;
-        if (securityProperties.isSecureMode()) {
-            usuario = usuarioRepository.findByUsername(request.username())
-                    .orElseThrow(() -> new BusinessException("Credenciais inválidas"));
-            if (!passwordEncoder.matches(request.senha(), usuario.getSenha())) {
-                throw new BusinessException("Credenciais inválidas");
-            }
-        } else {
-            String sql = "SELECT * FROM usuarios WHERE username = '" + request.username() + "' AND senha = '" + request.senha() + "'";
-            Query query = entityManager.createNativeQuery(sql, Usuario.class);
-            List<Usuario> resultados = query.getResultList();
-            if (resultados.isEmpty()) {
-                throw new BusinessException("Credenciais inválidas");
-            }
-            usuario = resultados.get(0);
+
+        Usuario usuario = usuarioRepository.findByUsername(request.username())
+                .orElseThrow(() -> new BusinessException("Credenciais inválidas"));
+
+        if (!passwordEncoder.matches(request.senha(), usuario.getSenha())) {
+            throw new BusinessException("Credenciais inválidas");
         }
+
         String token = tokenService.emitToken(usuario);
-        return new LoginResponse(token, usuario.getRole().name(), securityProperties.getMode().name());
+
+        return new LoginResponse(
+                token,
+                usuario.getRole().name(),
+                securityProperties.getMode().name()
+        );
     }
 }

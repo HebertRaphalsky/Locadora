@@ -30,6 +30,7 @@ public class UsuarioService {
     }
 
     public UsuarioResponse criarUsuario(UsuarioRequest request) {
+
         if (securityProperties.isSecureMode()) {
             usuarioRepository.findByUsername(request.username()).ifPresent(u -> {
                 throw new BusinessException("Usuário já existente");
@@ -38,12 +39,22 @@ public class UsuarioService {
 
         Usuario usuario = new Usuario();
         usuario.setUsername(request.username());
-        usuario.setNome(securityProperties.isSecureMode() ? inputSanitizer.sanitize(request.nome()) : request.nome());
-        usuario.setEmail(securityProperties.isSecureMode() ? inputSanitizer.sanitize(request.email()) : request.email());
+
+        // ✅ CORREÇÃO XSS: sanitiza SEMPRE (nome/email)
+        usuario.setNome(inputSanitizer.sanitize(request.nome()));
+        usuario.setEmail(inputSanitizer.sanitize(request.email()));
+
         usuario.setRole(RoleType.valueOf(request.role().toUpperCase()));
         usuario.setSenha(passwordEncoder.encode(request.senha()));
 
         Usuario salvo = usuarioRepository.save(usuario);
-        return new UsuarioResponse(salvo.getId(), salvo.getUsername(), salvo.getNome(), salvo.getRole().name(), salvo.getEmail());
+
+        return new UsuarioResponse(
+                salvo.getId(),
+                salvo.getUsername(),
+                salvo.getNome(),
+                salvo.getRole().name(),
+                salvo.getEmail()
+        );
     }
 }

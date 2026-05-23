@@ -1,6 +1,5 @@
 package com.example.locadora.service;
 
-import com.example.locadora.config.AppSecurityProperties;
 import com.example.locadora.dto.JogoRequest;
 import com.example.locadora.dto.JogoResponse;
 import com.example.locadora.entity.Jogo;
@@ -21,12 +20,11 @@ public class JogoService {
 
     private final JogoRepository jogoRepository;
     private final InputSanitizer inputSanitizer;
-    private final AppSecurityProperties securityProperties;
 
-    public JogoService(JogoRepository jogoRepository, InputSanitizer inputSanitizer, AppSecurityProperties securityProperties) {
+    public JogoService(JogoRepository jogoRepository,
+                       InputSanitizer inputSanitizer) {
         this.jogoRepository = jogoRepository;
         this.inputSanitizer = inputSanitizer;
-        this.securityProperties = securityProperties;
     }
 
     public List<JogoResponse> listar() {
@@ -38,26 +36,30 @@ public class JogoService {
 
     public JogoResponse criar(JogoRequest request) {
         validarJogo(request);
+
         Jogo jogo = new Jogo();
         preencher(jogo, request);
+
         return toResponse(jogoRepository.save(jogo));
     }
 
     public JogoResponse atualizar(Long id, JogoRequest request) {
+
+        // ✅ CORREÇÃO VULN 6: SEMPRE validar existência
         Jogo jogo = buscarOuErro(id);
-        if (securityProperties.isInsecureMode()) {
-            // Falha na validação de ID: aceita qualquer número e ignora inexistência
-            jogo = jogoRepository.findById(id).orElseGet(Jogo::new);
-        }
+
         validarJogo(request);
         preencher(jogo, request);
+
         return toResponse(jogoRepository.save(jogo));
     }
 
     public void remover(Long id) {
-        if (securityProperties.isSecureMode() && !SecurityUtil.hasRole(RoleType.ADMIN)) {
+
+        if (!SecurityUtil.hasRole(RoleType.ADMIN)) {
             throw new AccessDeniedBusinessException("Somente administradores podem remover jogos");
         }
+
         Jogo jogo = buscarOuErro(id);
         jogoRepository.delete(jogo);
     }
@@ -68,28 +70,26 @@ public class JogoService {
     }
 
     private void validarJogo(JogoRequest request) {
-        if (securityProperties.isSecureMode()) {
-            if (request.precoDiaria() == null || request.precoDiaria().doubleValue() <= 0) {
-                throw new BusinessException("Preço inválido");
-            }
+        if (request.precoDiaria() == null || request.precoDiaria().doubleValue() <= 0) {
+            throw new BusinessException("Preço inválido");
         }
-        // modo inseguro aceita qualquer payload, inclusive scripts na descrição
     }
 
     private void preencher(Jogo jogo, JogoRequest request) {
-        if (securityProperties.isSecureMode()) {
-            jogo.setTitulo(inputSanitizer.sanitize(request.titulo()));
-            jogo.setGenero(inputSanitizer.sanitize(request.genero()));
-            jogo.setDescricao(inputSanitizer.sanitize(request.descricao()));
-        } else {
-            jogo.setTitulo(request.titulo());
-            jogo.setGenero(request.genero());
-            jogo.setDescricao(request.descricao());
-        }
+        jogo.setTitulo(inputSanitizer.sanitize(request.titulo()));
+        jogo.setGenero(inputSanitizer.sanitize(request.genero()));
+        jogo.setDescricao(inputSanitizer.sanitize(request.descricao()));
         jogo.setPrecoDiaria(request.precoDiaria());
     }
 
     private JogoResponse toResponse(Jogo jogo) {
-        return new JogoResponse(jogo.getId(), jogo.getTitulo(), jogo.getGenero(), jogo.getPrecoDiaria(), jogo.isDisponivel(), jogo.getDescricao());
+        return new JogoResponse(
+                jogo.getId(),
+                jogo.getTitulo(),
+                jogo.getGenero(),
+                jogo.getPrecoDiaria(),
+                jogo.isDisponivel(),
+                jogo.getDescricao()
+        );
     }
 }
